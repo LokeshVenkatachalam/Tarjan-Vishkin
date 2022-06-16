@@ -12,7 +12,9 @@ struct vertex {
     long long int descendant_count;
     long long int discovery_time;
     long long int component_number;
+    long long int parent_id;
     bool visited;
+    bool root;
 };
 
 struct edge {
@@ -43,6 +45,8 @@ void input(long long int vertexCount,long long int edgeCount){
         temp_vertex->discovery_time = 0;
         temp_vertex->component_number = 0;
         temp_vertex->visited = false;
+        temp_vertex->root = false;
+        temp_vertex->parent_id = -1;
         vertices.push_back(temp_vertex);
     }
 
@@ -63,7 +67,7 @@ void input(long long int vertexCount,long long int edgeCount){
     }
 }
 
-void DFS(long long int vertex_id,long long int component_number, long long int parent_id){
+void DFS(long long int vertex_id,long long int component_number){
     vertices[vertex_id]->visited = true;
     vertices[vertex_id]->component_number = component_number;
     vertices[vertex_id]->discovery_time = DFS_timer;
@@ -75,13 +79,14 @@ void DFS(long long int vertex_id,long long int component_number, long long int p
     {
         long long int TO = to_edge.first;
         long long int TO_edge_id = to_edge.second;
-        if (TO == parent_id) continue;
+        if (TO == vertices[vertex_id]->parent_id) continue;
         if (vertices[TO]->visited){
             vertices[vertex_id]->low = min(vertices[vertex_id]->low, vertices[TO]->discovery_time);
             vertices[vertex_id]->high = max(vertices[vertex_id]->high, vertices[TO]->discovery_time);        
         }
         else{
-            DFS(TO,component_number,vertex_id);
+            vertices[TO]->parent_id = vertex_id;
+            DFS(TO,component_number);
             vertices[vertex_id]->low = min(vertices[vertex_id]->low, vertices[TO]->low);
             vertices[vertex_id]->high = max(vertices[vertex_id]->high, vertices[TO]->high);
             vertices[vertex_id]->descendant_count += vertices[TO]->descendant_count;
@@ -96,8 +101,9 @@ void graph_traversal(long long int vertex_count){
     long long int *discovery_time = 0;
     for(long long int i=0;i<vertex_count;i++){
         if(vertices[i]->visited == false){
-            DFS(i,component_number,-1);
+            DFS(i,component_number);
             component_number++;
+            vertices[i]->root = true;
         }
     }
 }
@@ -105,7 +111,35 @@ void graph_traversal(long long int vertex_count){
 void build_auxiliary_graph(long long int vertex_count,long long int edge_count){
     
     for(long long int i=0;i<edge_count;i++){
-        if(edges[i]->Tree_edge == false){
+        if(edges[i]->Tree_edge){
+            
+            long long int parent_vertex, child_vertex;
+            if(edges[i]->vertex_1->parent_id == edges[i]->vertex_2->id){
+                parent_vertex = edges[i]->vertex_2->id;
+                child_vertex = edges[i]->vertex_1->id;
+            }
+            else{
+                parent_vertex = edges[i]->vertex_2->id;
+                child_vertex = edges[i]->vertex_1->id;
+            }
+
+            for (pair<long long int,long long int> to_edge: vertexAdjacencyList[child_vertex])
+            {
+                if(to_edge.first == parent_vertex) continue;
+                if(edges[to_edge.second]->Tree_edge) continue;
+
+                long long int back_edge_vertex;
+                if(edges[to_edge.second]->vertex_1->id == child_vertex)
+                    back_edge_vertex = edges[to_edge.second]->vertex_2->id;              
+                else
+                    back_edge_vertex = edges[to_edge.second]->vertex_1->id;
+
+                if(vertices[back_edge_vertex]->discovery_time < vertices[child_vertex]->discovery_time)
+                {
+                    edgeAdjacencyList[i].push_back(to_edge.second);
+                    edgeAdjacencyList[to_edge.second].push_back(i);
+                }
+            }
             
         }
     }
